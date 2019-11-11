@@ -142,11 +142,15 @@ void startWifi() {
         if(action == "on" || action == "open"){
             request->send(200, "application/json", "true");
             toggleRelay(1);
+        }
+        else if (action == "stop"){
+            request->send(200, "application/json", "true");
+            toggleRelay(1);
         }else if (action == "off" || action == "close"){
             request->send(200, "application/json", "false");
             toggleRelay(0);
         } else {
-            request->send(400, "application/json", "invalid command. use on, off, open,close");
+            request->send(400, "application/json", "invalid command. use on, off, open,close or stop");
         }
     });
 

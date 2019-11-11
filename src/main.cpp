@@ -22,7 +22,7 @@ Ultrasonic ultrasonic1(D1, D2, 20000UL);
 bool relayState = LOW;
 unsigned long relayTimer = 0;
 
-const char* version = "0.11";
+const char* version = "0.12";
 
 bool debug = false;
 sensordata sensors;
@@ -269,7 +269,7 @@ void loop() {
   // start config mode
   if(configStartTime >0 && (millis()-configStartTime)/1000 >= SecondsToConfig){
     configStartTime = 0;
-    Serial.println("Starting Config Portal)");
+    Serial.println("Starting Config Portal");
     settings.runSetup = true; //save in settings, will be reset once settings have been saved via UI aggain
     saveSettings(settings);
     restartRequired = true;

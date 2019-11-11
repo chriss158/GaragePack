@@ -11,7 +11,7 @@ long lastMsg = 0;
 char msg[50];
 int value = 0;
 char mqttTopicState[50] = "/state";
-char mqttTopiCommand[50] = "/cmnd";
+char mqttTopicCommand[50] = "/cmnd";
 
 
 void callback(char* topic, byte* payload, unsigned int length) {
@@ -26,7 +26,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
     Serial.print("MQTT Command: ");
     // Serial.print(topic);
     Serial.println(msgin);
-    if(String(cmd.command) == "open"){
+    if(String(cmd.command) == "open" || String(cmd.command) == "stop"){
         if(String(cmd.value)=="on"){
           toggleRelay(true);
         }
@@ -67,9 +67,9 @@ void reconnect() {
       Serial.print("MQTT publish: ");
       Serial.println(mqttTopicState);
       Serial.print("MQTT commands: ");
-      Serial.println(mqttTopiCommand);
+      Serial.println(mqttTopicCommand);
 
-      client.subscribe(mqttTopiCommand);
+      client.subscribe(mqttTopicCommand);
     } else {
       Serial.print("failed, rc=");
       Serial.print(client.state());
@@ -81,7 +81,7 @@ void reconnect() {
 }
 
 void setupMqtt() {
-  sprintf(mqttTopiCommand, "home/%s/cmnd", settings.wifiHostname);
+  sprintf(mqttTopicCommand, "home/%s/cmnd", settings.wifiHostname);
   sprintf(mqttTopicState, "home/%s/state", settings.wifiHostname);
 
   client.setServer(settings.mqttHost, settings.mqttPort);
