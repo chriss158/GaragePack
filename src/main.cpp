@@ -22,7 +22,7 @@ Ultrasonic ultrasonic1(D1, D2, 20000UL);
 bool relayState = LOW;
 unsigned long relayTimer = 0;
 
-const char* version = "0.9";
+const char* version = "0.10";
 
 bool debug = false;
 sensordata sensors;
@@ -182,9 +182,12 @@ void setup() {
   startWifi();
   Serial.println(WiFi.status());
   if(WiFi.status() != WL_CONNECTED){
-    Serial.println("Wifi connection error! restarting in seconds " + String(restartAfterWifiError));
-    timeToRestart = millis() + (restartAfterWifiError * 1000);
-    increaseErrorCounter();
+    if(!settings.runSetup)
+    {
+      Serial.println("Wifi connection error! restarting in seconds " + String(restartAfterWifiError));
+      timeToRestart = millis() + (restartAfterWifiError * 1000);
+      increaseErrorCounter();
+    }
   }
   else
   {
@@ -215,7 +218,6 @@ void loop() {
   if ( !settings.runSetup and (WiFi.status() == WL_CONNECTION_LOST || WiFi.status() == WL_DISCONNECTED))
   {
     Serial.println("connection to WiFi lost, restarting");
-    increaseErrorCounter();
     restartRequired = true;
   }
 
