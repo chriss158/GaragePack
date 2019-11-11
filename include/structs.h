@@ -31,6 +31,7 @@ struct Settings {
     const char* mqttLogin = "";
     const char* mqttPassword = "";
     bool runSetup = false;
+    int errorCount = 0;
 };
 
 struct MqttCommand {
@@ -78,6 +79,7 @@ String SettingsToJson(Settings sd) {
     doc["mqttPassword"] = sd.mqttPassword;
     doc["runSetup"] = sd.runSetup;
     doc["restartAfterWifiError"] = sd.restartAfterWifiError;
+    doc["errorCount"] = sd.errorCount;
 
     serializeJson(doc, output);
     return output;
@@ -106,6 +108,11 @@ Settings JsonToSettings(String json){
         sd.mqttPassword = doc["mqttPassword"];
         sd.runSetup = doc["runSetup"];
         sd.restartAfterWifiError = doc["restartAfterWifiError"];
+        if(doc.containsKey("errorCount"))
+        {
+            sd.errorCount = doc["errorCount"];
+        }
+        else sd.errorCount = 0;
     }
     return sd;
 }

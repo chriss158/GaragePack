@@ -22,7 +22,7 @@ Ultrasonic ultrasonic1(D1, D2, 20000UL);
 bool relayState = LOW;
 unsigned long relayTimer = 0;
 
-const char* version = "0.8";
+const char* version = "0.9";
 
 bool debug = false;
 sensordata sensors;
@@ -32,14 +32,17 @@ unsigned long scanTime = 100;
 
 bool restartRequired = false;  
 const uint setupAddr = 0;
+bool setupMqttOk;
+
+int errorCountTillSetup = 5;
 
 // if ultrasonic sensor is <maxDistanceToConfig> for <configAry[seconds]>, start config portal
-int maxDistanceToConfig = 10; 
+int maxDistanceToConfig = 5; 
 unsigned int SecondsToConfig = 10;
 unsigned long configStartTime = 0;
 
 // failsafes and wifi checking values
-unsigned int restartAfterWifiError = 300;
+unsigned int restartAfterWifiError = 60;
 unsigned long timeToRestart = 0;
 GarageStatus garagestatus;
 
@@ -125,6 +128,30 @@ int getStatusChecksum(Status s){
   }
   return ret;
 }
+void resetErrorCounter() {
+      settings.errorCount = 0;
+      saveSettings(settings);
+}
+void increaseErrorCounter() {
+
+if(!settings.runSetup)
+{
+    if(settings.errorCount < errorCountTillSetup)
+    {
+      settings.errorCount = settings.errorCount+1;
+      String msg = "Setting error count till setup mode to ";
+      msg+= String(settings.errorCount) + "/" + String(errorCountTillSetup);
+      Serial.println(msg);
+    }
+    if(settings.errorCount >= errorCountTillSetup)
+    {
+      Serial.println("Error count reached. Run setup mode next restart.");
+      settings.errorCount = 0;
+      settings.runSetup = true;
+    }
+    saveSettings(settings);
+}
+}
 
 // ------------------------------ Setup -------------------------------------
 void setup() {
@@ -157,17 +184,30 @@ void setup() {
   if(WiFi.status() != WL_CONNECTED){
     Serial.println("Wifi connection error! restarting in seconds " + String(restartAfterWifiError));
     timeToRestart = millis() + (restartAfterWifiError * 1000);
+    increaseErrorCounter();
   }
+  else
+  {
+    resetErrorCounter();
+  }
+  
 
   timeClient.begin();
-  if(String(settings.mqttHost)!=""){
+  if(String(settings.mqttHost)!="" && WiFi.status() == WL_CONNECTED){
     setupMqtt();
+    setupMqttOk = true;
   } else {
     Serial.println("MQTT host not set, skipping");
+    setupMqttOk = false;
   }
 }
 
+
+
+
+
 // ------------------ main loop
+
 
 void loop() {
   
@@ -175,6 +215,7 @@ void loop() {
   if ( !settings.runSetup and (WiFi.status() == WL_CONNECTION_LOST || WiFi.status() == WL_DISCONNECTED))
   {
     Serial.println("connection to WiFi lost, restarting");
+    increaseErrorCounter();
     restartRequired = true;
   }
 
@@ -185,7 +226,7 @@ void loop() {
     ESP.restart();
   }
 
-  if(String(settings.mqttHost)!=""){
+  if(setupMqttOk){
     mqttLoop();
   }
 

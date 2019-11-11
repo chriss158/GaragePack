@@ -12,8 +12,10 @@ extern bool toggleRelay(int state);
 extern bool saveSettings(Settings sd);
 extern bool restartRequired;
 extern const char* version;
-
+bool uploadOK;
+String path = "";
 AsyncWebSocketClient * globalClient = NULL;
+File file;
 
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
@@ -30,6 +32,12 @@ String getContentType(String filename) { // convert the file extension to the MI
   else if (filename.endsWith(".svg")) return "image/svg+xml";
   else if (filename.endsWith(".ico")) return "image/x-icon";
   return "text/plain";
+}
+
+String GetNewUploadHtml()
+{
+    if(path == "") path = "/";
+    return "<form method='POST' action='/setpath' ><input type='text' id='path' name='path' value='" + path + "'><input type='submit' value='Set Path'></form><br><form method='POST' action='/upload' enctype='multipart/form-data'><input type='file' name='file'><input type='submit' value='Upload'></form>";
 }
 
 void handleNotFound(AsyncWebServerRequest *request) {
@@ -170,6 +178,67 @@ void startWifi() {
             request->send(500, "application/json", "wrting settinsg failed");
         }
         
+    });
+
+    server.on("/upload", HTTP_GET, [](AsyncWebServerRequest *request){
+        AsyncWebServerResponse *response = request->beginResponse(200, "text/html", GetNewUploadHtml());
+        response->addHeader("Connection", "close");
+        response->addHeader("Access-Control-Allow-Origin", "*");
+        request->send(response);
+    });
+
+    server.on("/setpath", HTTP_POST, [](AsyncWebServerRequest *request){
+
+       path = "/";
+       if(request->hasParam("path", true)) 
+       {
+            AsyncWebParameter* p = request->getParam("path", true);
+            path = p->value();
+        }
+        if(path == "") path = "/";
+        request->redirect("/upload");
+    });
+
+     server.on("/upload", HTTP_POST, [](AsyncWebServerRequest *request){
+        // the request handler is triggered after the upload has finished... 
+        // create the response, add header, and send response
+       AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", (uploadOK)?"OK":"FAIL");
+        response->addHeader("Connection", "close");
+        response->addHeader("Access-Control-Allow-Origin", "*");
+        request->send(response);
+    },[](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final){
+        //Upload handler chunks in data
+        String filepath = "";
+
+        if(!index)
+        {
+            uploadOK = true;
+            String filepath = path + filename;
+            Serial.print("Upload filepath: ");
+            Serial.println(filepath);
+            SPIFFS.remove(filepath);
+            file = SPIFFS.open(filepath, "a");
+            if (!file) {
+                Serial.println("Error opening file for writing");
+                uploadOK = false;
+            }
+        }      
+
+        if(uploadOK)
+        {
+            int bytesWritten = file.write(data, len);
+    
+            if (bytesWritten > 0) {
+                Serial.println("File was written");
+                Serial.println(bytesWritten);
+
+
+            } else {
+                Serial.println("File write failed");
+                uploadOK = false;
+            }
+        }
+        if(final) file.close();
     });
 
     // --------------- UPDATE FIRMWARE ----------------------
