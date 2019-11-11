@@ -52,7 +52,17 @@ void reconnect() {
     String clientId = "ESP8266Client-";
     clientId += String(random(0xffff), HEX);
     // Attempt to connect
-    if (client.connect(clientId.c_str())) {
+    bool connectionOk = false;
+    if(strlen(settings.mqttLogin) > 0 && strlen(settings.mqttPassword) > 0)
+    {
+      connectionOk = client.connect(clientId.c_str(), settings.mqttLogin, settings.mqttPassword);
+    }
+    else
+    {
+      connectionOk = client.connect(clientId.c_str());
+    }
+    
+    if (connectionOk) {
       Serial.println("connected");
       Serial.print("MQTT publish: ");
       Serial.println(mqttTopicState);
