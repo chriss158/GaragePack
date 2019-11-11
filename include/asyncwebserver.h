@@ -95,7 +95,7 @@ void startWifi() {
         WiFi.mode(WIFI_AP);
         WiFi.persistent(true);
 
-        WiFi.softAP("GaragePackSetup");
+        WiFi.softAP("GaragePackSetup_" + String(random(0xffff), HEX));
         
         Serial.println();
         Serial.print("IP address: ");

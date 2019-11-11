@@ -22,7 +22,7 @@ Ultrasonic ultrasonic1(D1, D2, 20000UL);
 bool relayState = LOW;
 unsigned long relayTimer = 0;
 
-const char* version = "0.10";
+const char* version = "0.11";
 
 bool debug = false;
 sensordata sensors;
