@@ -22,7 +22,7 @@ Ultrasonic ultrasonic1(D1, D2, 20000UL);
 bool relayState = LOW;
 unsigned long relayTimer = 0;
 
-const char* version = "0.12";
+const char* version = "0.14";
 
 bool debug = false;
 sensordata sensors;
@@ -134,25 +134,45 @@ void resetErrorCounter() {
 }
 void increaseErrorCounter() {
 
-if(!settings.runSetup)
-{
-    if(settings.errorCount < errorCountTillSetup)
-    {
-      settings.errorCount = settings.errorCount+1;
-      String msg = "Setting error count till setup mode to ";
-      msg+= String(settings.errorCount) + "/" + String(errorCountTillSetup);
-      Serial.println(msg);
-    }
-    if(settings.errorCount >= errorCountTillSetup)
-    {
-      Serial.println("Error count reached. Run setup mode next restart.");
-      settings.errorCount = 0;
-      settings.runSetup = true;
-    }
-    saveSettings(settings);
+  if(!settings.runSetup)
+  {
+      if(settings.errorCount < errorCountTillSetup)
+      {
+        settings.errorCount = settings.errorCount+1;
+        String msg = "Setting error count till setup mode to ";
+        msg+= String(settings.errorCount) + "/" + String(errorCountTillSetup);
+        Serial.println(msg);
+      }
+      if(settings.errorCount >= errorCountTillSetup)
+      {
+        Serial.println("Error count reached. Run setup mode next restart.");
+        settings.errorCount = 0;
+        settings.runSetup = true;
+      }
+      saveSettings(settings);
+  }
 }
+Wifi getQuality() {
+  Wifi sd;
+  if (WiFi.status() != WL_CONNECTED)
+  {
+    sd.wifiQuality = -1;
+    return sd;
+  }
+  int dBm = WiFi.RSSI();
+  if (dBm <= -100)
+  {
+    sd.wifiQuality = 0;
+    return sd;
+  }
+  if (dBm >= -50)
+  {
+    sd.wifiQuality = 100;
+    return sd;
+  }
+  sd.wifiQuality = 2 * (dBm + 100);
+  return sd;
 }
-
 // ------------------------------ Setup -------------------------------------
 void setup() {
   Serial.begin(115200); // Starts the serial communication
@@ -289,6 +309,19 @@ void loop() {
     }
     prevChecksum = getStatusChecksum(garagestatus.getStatus());
 
+  }
+
+  static int previousQuality = -1;
+  Wifi quality = getQuality();
+  if (quality.wifiQuality != previousQuality) {  
+    if (quality.wifiQuality != -1)
+    {
+      Serial.printf("WiFi Quality:\t%d\%\tRSSI:\t%d dBm\r\n", quality, WiFi.RSSI());
+      String wifiStatus = WifiToJson(quality);
+      WifiSendtatus(wifiStatus);
+
+    }
+    previousQuality = quality.wifiQuality;
   }
 
 }

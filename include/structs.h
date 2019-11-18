@@ -8,6 +8,10 @@ struct Status {
     unsigned long lastUpdate;
 };
 
+struct Wifi {
+    int wifiQuality;
+};
+
 struct sensordata{
     int distance;
     bool motion;
@@ -49,6 +53,14 @@ String StatusToJson(Status sd) {
     doc["motion"] = sd.motion;
     doc["distance"] = sd.distance;
     doc["lastupdate"] = sd.lastUpdate;
+    serializeJson(doc, output);
+    return output;
+}
+
+String WifiToJson(Wifi sd) {
+    String output;
+    StaticJsonDocument<200> doc;
+    doc["wifiquality"] = sd.wifiQuality;
     serializeJson(doc, output);
     return output;
 }

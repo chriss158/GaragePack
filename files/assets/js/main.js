@@ -13,7 +13,7 @@ $(function(){
     socket.onmessage = function(evt){
         var obj = JSON.parse(evt.data);
         parseStatus(obj);
-        // console.log("I got data: ", evt.data);
+        console.log("I got data: ", evt.data);
     }
     // ------------ UI --------------------
     $(".garage-status").click(function(){
@@ -57,6 +57,7 @@ function parseStatus(obj){
             $(".car-notpresent").show();
         }
     }
+    $(".wifi-quality").html(obj.wifiquality +"%");
     //set placeholder
     $("#doorDistanceOpen, #doorDistanceClosed").prop("placeholder", obj.distance);
 }
