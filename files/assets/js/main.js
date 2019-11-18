@@ -10,10 +10,19 @@ $(function(){
     // ---------------- sockets -----------------
     var socket = new WebSocket('ws://'+hostname+'/ws');
 
+    getCurrenStatus();
+
     socket.onmessage = function(evt){
-        var obj = JSON.parse(evt.data);
-        parseStatus(obj);
         console.log("I got data: ", evt.data);
+        try {
+            var obj = JSON.parse(evt.data);
+            parseStatus(obj);
+        }
+        catch(e)
+        {
+            //console.log("Error parsing json data: " + evt.data );
+        }
+
     }
     // ------------ UI --------------------
     $(".garage-status").click(function(){
@@ -21,7 +30,7 @@ $(function(){
         if($(this).hasClass("garage-closed")){
             $.get(uri+"/door?action=open");
         }else{
-            $.get(uri+"/door?action=open");
+            $.get(uri+"/door?action=close");
         }
     });
     $(".nav-settings, #cancel").click(function(){
@@ -40,26 +49,44 @@ $(function(){
     });
 });
 
+function getCurrenStatus()
+{
+        $.ajax({
+            dataType: "json",
+            url: uri+"/status",
+            success: function(data){
+                parseStatus(data);
+            }
+          });
+}
+
 function parseStatus(obj){
-    $(".garage-status").removeClass("updating");
-    $(".garage-status, .car").hide();
-    $(".garage-status").removeClass("motion");
-    if(obj.motion){
-        $(".garage-status").addClass("motion");
-    }
-    if(obj.open){
-        $(".garage-open").show();
-    } else {
-        $(".garage-closed").show();
-        if(obj.car){
-            $(".car-present").show();
-        } else {
-            $(".car-notpresent").show();
+    if(obj.motion !== undefined && obj.open  !== undefined && obj.car  !== undefined && obj.distance  !== undefined)
+    {
+        $(".garage-status").removeClass("updating");
+        $(".garage-status, .car").hide();
+        $(".garage-status").removeClass("motion");
+        if(obj.motion){
+            $(".garage-status").addClass("motion");
         }
+        if(obj.open){
+            $(".garage-open").show();
+        } else {
+            $(".garage-closed").show();
+            if(obj.car){
+                $(".car-present").show();
+            } else {
+                $(".car-notpresent").show();
+            }
+        }
+            //set placeholder
+        $("#doorDistanceOpen, #doorDistanceClosed").prop("placeholder", obj.distance);
     }
-    $(".wifi-quality").html(obj.wifiquality +"%");
-    //set placeholder
-    $("#doorDistanceOpen, #doorDistanceClosed").prop("placeholder", obj.distance);
+    if(obj.wifiquality  !== undefined)
+    {
+        $(".wifi-quality").html(obj.wifiquality +"%");
+    }
+
 }
 
 function readSettings(){

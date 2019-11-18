@@ -2,6 +2,7 @@
 
 struct Status {
     bool open;
+    String state;
     bool car;
     bool motion;
     int distance;
@@ -12,7 +13,7 @@ struct Wifi {
     int wifiQuality;
 };
 
-struct sensordata{
+struct Sensordata{
     int distance;
     bool motion;
     unsigned long lastUpdate;
@@ -36,6 +37,8 @@ struct Settings {
     const char* mqttPassword = "";
     bool runSetup = false;
     int errorCount = 0;
+    unsigned long int doorTimeOpen = 10000;
+    unsigned long int doorTimeClose = 10000;
 };
 
 struct MqttCommand {
@@ -49,6 +52,7 @@ String StatusToJson(Status sd) {
     String output;
     StaticJsonDocument<200> doc;
     doc["open"] = sd.open;
+    doc["state"] = sd.state;
     doc["car"] = sd.car;
     doc["motion"] = sd.motion;
     doc["distance"] = sd.distance;
@@ -65,7 +69,7 @@ String WifiToJson(Wifi sd) {
     return output;
 }
 
-String sensordataToJson(sensordata sd) {
+String sensordataToJson(Sensordata sd) {
     String output;
     StaticJsonDocument<200> doc;
     doc["distance"] = sd.distance;
@@ -92,7 +96,9 @@ String SettingsToJson(Settings sd) {
     doc["runSetup"] = sd.runSetup;
     doc["restartAfterWifiError"] = sd.restartAfterWifiError;
     doc["errorCount"] = sd.errorCount;
-
+    doc["doorTimeOpen"] = sd.doorTimeOpen;
+    doc["doorTimeClose"] = sd.doorTimeClose;
+     
     serializeJson(doc, output);
     return output;
 }
@@ -120,6 +126,9 @@ Settings JsonToSettings(String json){
         sd.mqttPassword = doc["mqttPassword"];
         sd.runSetup = doc["runSetup"];
         sd.restartAfterWifiError = doc["restartAfterWifiError"];
+        sd.doorTimeOpen = doc["doorTimeOpen"];
+        sd.doorTimeClose = doc["doorTimeClose"];
+
         if(doc.containsKey("errorCount"))
         {
             sd.errorCount = doc["errorCount"];

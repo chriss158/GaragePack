@@ -5,7 +5,7 @@
 #include <NTPClient.h>
 
 #include <structs.h>
-#include <garagestatus.h>
+#include <garage.h>
 #include <asyncwebserver.h>
 #include <mqtt.h>
 
@@ -19,16 +19,19 @@ int pirPin = D7;
 Ultrasonic ultrasonic1(D1, D2, 20000UL);
 
 // unsigned long int relayMode = 500;  //0=toggle, >0=delay ms for push button emulation
-bool relayState = LOW;
-unsigned long relayTimer = 0;
 
-const char* version = "0.14";
+
+const char* version = "0.15";
 
 bool debug = false;
-sensordata sensors;
-int prevChecksum = 9;
+Sensordata sensors;
+int prevChecksum = -33;
 unsigned long nextScan=0;
 unsigned long scanTime = 100;
+
+int previousQuality = -1;
+unsigned long wifiQualityCheckTime = 0;
+unsigned long wifiQualityCheckTimer = 10000;
 
 bool restartRequired = false;  
 const uint setupAddr = 0;
@@ -44,7 +47,7 @@ unsigned long configStartTime = 0;
 // failsafes and wifi checking values
 unsigned int restartAfterWifiError = 60;
 unsigned long timeToRestart = 0;
-GarageStatus garagestatus;
+Garage garage;
 
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "europe.pool.ntp.org", 3600, 60000);
@@ -68,7 +71,9 @@ bool saveSettings(Settings sd){
 }
 
 int getDistance() { 
-  return ultrasonic1.read(CM);
+  unsigned int distance = ultrasonic1.read(CM);
+   return distance;
+  //return 200;
 }
 
 bool getMotion(){
@@ -81,40 +86,6 @@ bool getMotion(){
   return true;
 }
 
-void checkRelay(){
-    if(relayTimer>0 && millis() > relayTimer){
-      Serial.println("{relay: false, mode: "+String(settings.relayMode)+"}");
-      digitalWrite(relay, LOW);
-      relayTimer = 0;
-    }
-}
-
-bool toggleRelay(int state){
-  bool cState = false;
-  if(settings.relayMode==0){
-    switch (state) {
-      case 0:
-        cState = LOW;
-        break;
-      case 1:
-        cState = HIGH;
-        break;
-      case 2:
-        cState = !relayState;
-        break;
-    }
-    relayState = cState;
-    digitalWrite(relay, cState);
-    return cState;
-  } else {
-
-      Serial.println("{relay: true, mode: "+String(settings.relayMode)+"}");
-    digitalWrite(relay, HIGH);
-    relayTimer = millis() + settings.relayMode;
-    return true;
-  }
-}
-
 int getStatusChecksum(Status s){
   int ret = 0;
   if(s.open){
@@ -125,6 +96,20 @@ int getStatusChecksum(Status s){
   }
   if(s.motion){
     ret+=100;
+  }
+
+  if(s.state == "open")
+  {
+    ret+=1000;
+  }
+  else if(s.state == "closed") {
+    ret+=1010;
+  }
+  else if(s.state == "opening") {
+    ret+=1020;
+  }
+  else if(s.state == "closing") {
+    ret+=1030;
   }
   return ret;
 }
@@ -182,6 +167,8 @@ void setup() {
 
   pinMode(relay, OUTPUT);
 
+
+
   //read config
   SPIFFS.begin();
   File f = SPIFFS.open("/settings.json", "r");
@@ -191,12 +178,10 @@ void setup() {
     String jdata = f.readString();
     settings = JsonToSettings(jdata);
 
-    Serial.println("Loading settings");
-    
-    garagestatus.distanceDoorOpen = settings.doorDistanceOpen;
-    garagestatus.distanceDoorClosed = settings.doorDistanceClosed;
-   
+    Serial.println("Loading settings");   
   } 
+
+  garage.initGarage(settings, relay);
 
   // delay(1000);
   startWifi();
@@ -256,7 +241,7 @@ void loop() {
   currentTime = timeClient.getFormattedTime();
 
   bool stable = false;
-  checkRelay(); // cant use delay because of asyncwebserver
+  garage.checkTimers(); // cant use delay because of asyncwebserver
   sensors.lastUpdate = millis();
 
   // if PIR enabled, initialize
@@ -268,7 +253,7 @@ void loop() {
   if(nextScan<=millis()){
     nextScan = millis() + scanTime;
     sensors.distance = getDistance();
-    stable = garagestatus.feed(sensors);
+    stable = garage.feed(sensors);
     if(debug){
       Serial.println(sensors.distance);
     }
@@ -298,30 +283,33 @@ void loop() {
 
 
   if(stable){ //only submit values if readings are stable
-    String strStatus = StatusToJson(garagestatus.getStatus());
+    String strStatus = StatusToJson(garage.getStatus());
     char charStatus[255];
     strStatus.toCharArray(charStatus, 255);
+    int currentChecksum = getStatusChecksum(garage.getStatus());
 
-    if(getStatusChecksum(garagestatus.getStatus()) != prevChecksum){
+    if(currentChecksum != prevChecksum){
       mqttPublish(charStatus);
       Serial.println(strStatus);
       WifiSendtatus(strStatus);
     }
-    prevChecksum = getStatusChecksum(garagestatus.getStatus());
+    prevChecksum = currentChecksum;
 
   }
 
-  static int previousQuality = -1;
-  Wifi quality = getQuality();
-  if (quality.wifiQuality != previousQuality) {  
-    if (quality.wifiQuality != -1)
-    {
-      Serial.printf("WiFi Quality:\t%d\%\tRSSI:\t%d dBm\r\n", quality, WiFi.RSSI());
-      String wifiStatus = WifiToJson(quality);
-      WifiSendtatus(wifiStatus);
+  if(millis() > wifiQualityCheckTime)
+  {
+    Wifi quality = getQuality();
+    if (quality.wifiQuality != previousQuality) {  
+      if (quality.wifiQuality != -1)
+      {
+        Serial.printf("WiFi Quality:\t%d\%\tRSSI:\t%d dBm\r\n", quality, WiFi.RSSI());
+        String wifiStatus = WifiToJson(quality);
+        WifiSendtatus(wifiStatus);
 
+      }
+      previousQuality = quality.wifiQuality;
     }
-    previousQuality = quality.wifiQuality;
+    wifiQualityCheckTime = millis() + wifiQualityCheckTimer;
   }
-
 }

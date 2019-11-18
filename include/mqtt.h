@@ -1,9 +1,9 @@
-
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
 
 
 extern Settings settings;
+extern Garage garage;
 
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -26,14 +26,18 @@ void callback(char* topic, byte* payload, unsigned int length) {
     Serial.print("MQTT Command: ");
     // Serial.print(topic);
     Serial.println(msgin);
-    if(String(cmd.command) == "open" || String(cmd.command) == "stop"){
+    if(String(cmd.command) == "open"){
         if(String(cmd.value)=="on"){
-          toggleRelay(true);
+          garage.open();
         }
         if(String(cmd.value)=="off"){
-          toggleRelay(false);
+          garage.close();
         }
-    } else {
+    } 
+    else if(String(cmd.command) == "stop"){
+      garage.stop();
+    }
+    else {
         Serial.println(" Invalid");
     }
   }

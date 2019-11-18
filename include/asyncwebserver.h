@@ -4,11 +4,10 @@
 #include <ESPAsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 
-
+extern Garage garage;
 extern Settings settings;
 String lastWsMessage;
 extern int relay;
-extern bool toggleRelay(int state);
 extern bool saveSettings(Settings sd);
 extern bool restartRequired;
 extern const char* version;
@@ -130,7 +129,7 @@ void startWifi() {
 
 
     server.on("/status", HTTP_GET, [](AsyncWebServerRequest *request){
-        request->send(200, "application/json", lastWsMessage);
+        request->send(200, "application/json", StatusToJson(garage.getStatus()));
     });
 
     server.on("/door", HTTP_GET, [] (AsyncWebServerRequest *request) {
@@ -141,14 +140,14 @@ void startWifi() {
 
         if(action == "on" || action == "open"){
             request->send(200, "application/json", "true");
-            toggleRelay(1);
+            garage.open();
         }
         else if (action == "stop"){
             request->send(200, "application/json", "true");
-            toggleRelay(1);
+            garage.stop();
         }else if (action == "off" || action == "close"){
             request->send(200, "application/json", "false");
-            toggleRelay(0);
+            garage.close();
         } else {
             request->send(400, "application/json", "invalid command. use on, off, open,close or stop");
         }
