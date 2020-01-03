@@ -8,6 +8,10 @@
 #include <garage.h>
 #include <asyncwebserver.h>
 #include <mqtt.h>
+#include <EEPROM.h>
+#include <logger.h>
+
+#define EEPROM_SIZE 1
 
 Settings settings;
 // const char* ssid = "BND Servicemobil";
@@ -15,32 +19,34 @@ Settings settings;
 
 // defines pins numbers
 int relay = D5;
+int reedPin = D6;
 int pirPin = D7;
 Ultrasonic ultrasonic1(D1, D2, 20000UL);
 
 // unsigned long int relayMode = 500;  //0=toggle, >0=delay ms for push button emulation
 
-
-const char* version = "0.15";
+const char *version = "0.16";
 
 bool debug = false;
 Sensordata sensors;
 int prevChecksum = -33;
-unsigned long nextScan=0;
+String prevState = "";
+unsigned long nextScan = 0;
 unsigned long scanTime = 100;
 
 int previousQuality = -1;
 unsigned long wifiQualityCheckTime = 0;
 unsigned long wifiQualityCheckTimer = 10000;
 
-bool restartRequired = false;  
+bool restartRequired = false;
+bool espRestarting = false;
 const uint setupAddr = 0;
 bool setupMqttOk;
 
 int errorCountTillSetup = 5;
 
 // if ultrasonic sensor is <maxDistanceToConfig> for <configAry[seconds]>, start config portal
-int maxDistanceToConfig = 5; 
+int maxDistanceToConfig = 5;
 unsigned int SecondsToConfig = 10;
 unsigned long configStartTime = 0;
 
@@ -48,35 +54,43 @@ unsigned long configStartTime = 0;
 unsigned int restartAfterWifiError = 60;
 unsigned long timeToRestart = 0;
 Garage garage;
-
 WiFiUDP ntpUDP;
+AsyncWebServer server(80);
 NTPClient timeClient(ntpUDP, "europe.pool.ntp.org", 3600, 60000);
 String currentTime = "";
 
 // -------------------- internal functions ---------------------
-bool saveSettings(Settings sd){
+bool saveSettings(Settings sd)
+{
   File file = SPIFFS.open("/settings.json", "w");
-  if(!file){
-     Serial.println("There was an error opening the file for writing");
-     return false;
+  if (!file)
+  {
+    Logger.println("There was an error opening the file for writing");
+    return false;
   }
-  if(file.print(SettingsToJson(sd))) {
-    Serial.println("Settings written");
-  }else {
-      Serial.println("writing settings failed");
-      return false;
+  if (file.print(SettingsToJson(sd)))
+  {
+    Logger.println("Settings written");
+    file.close();
+  }
+  else
+  {
+    Logger.println("writing settings failed");
+    file.close();
+    return false;
   }
   return true;
-
 }
 
-int getDistance() { 
+int getDistance()
+{
   unsigned int distance = ultrasonic1.read(CM);
-   return distance;
+  return distance;
   //return 200;
 }
 
-bool getMotion(){
+bool getMotion()
+{
   int val = digitalRead(pirPin);
   //low = no motion, high = motion
   if (val == LOW)
@@ -86,110 +100,117 @@ bool getMotion(){
   return true;
 }
 
-int getStatusChecksum(Status s){
+
+
+int getAttributesChecksum(Attributes a)
+{
   int ret = 0;
-  if(s.open){
-    ret+=1;
+  if (a.open)
+  {
+    ret += 1;
   }
-  if(s.car){
-    ret+=10;
+  if (a.car)
+  {
+    ret += 10;
   }
-  if(s.motion){
-    ret+=100;
+  if (a.motion)
+  {
+    ret += 100;
   }
 
-  if(s.state == "open")
+  if (a.state == "open")
   {
-    ret+=1000;
+    ret += 1000;
   }
-  else if(s.state == "closed") {
-    ret+=1010;
+  else if (a.state == "closed")
+  {
+    ret += 1010;
   }
-  else if(s.state == "opening") {
-    ret+=1020;
+  else if (a.state == "opening")
+  {
+    ret += 1020;
   }
-  else if(s.state == "closing") {
-    ret+=1030;
+  else if (a.state == "closing")
+  {
+    ret += 1030;
   }
   return ret;
 }
-void resetErrorCounter() {
-      settings.errorCount = 0;
-      saveSettings(settings);
+void resetErrorCounter()
+{
+  int currentErrorCount = EEPROM.read(0);
+  if (currentErrorCount != 0)
+  {
+    EEPROM.write(0, 0);
+    EEPROM.commit();
+  }
 }
-void increaseErrorCounter() {
+void increaseErrorCounter()
+{
 
-  if(!settings.runSetup)
+  if (!settings.runSetup)
   {
-      if(settings.errorCount < errorCountTillSetup)
-      {
-        settings.errorCount = settings.errorCount+1;
-        String msg = "Setting error count till setup mode to ";
-        msg+= String(settings.errorCount) + "/" + String(errorCountTillSetup);
-        Serial.println(msg);
-      }
-      if(settings.errorCount >= errorCountTillSetup)
-      {
-        Serial.println("Error count reached. Run setup mode next restart.");
-        settings.errorCount = 0;
-        settings.runSetup = true;
-      }
+    int currentErrorCount = EEPROM.read(0);
+    if (currentErrorCount < errorCountTillSetup)
+    {
+      currentErrorCount = currentErrorCount + 1;
+      String msg = "Setting error count till setup mode to ";
+      msg += String(currentErrorCount) + "/" + String(errorCountTillSetup);
+      Logger.println(msg);
+    }
+    if (currentErrorCount >= errorCountTillSetup)
+    {
+      Logger.println("Error count reached. Run setup mode next restart.");
+      currentErrorCount = 0;
+      settings.runSetup = true;
       saveSettings(settings);
+    }
+    EEPROM.write(0, currentErrorCount);
+    EEPROM.commit();
   }
 }
-Wifi getQuality() {
-  Wifi sd;
-  if (WiFi.status() != WL_CONNECTED)
-  {
-    sd.wifiQuality = -1;
-    return sd;
-  }
-  int dBm = WiFi.RSSI();
-  if (dBm <= -100)
-  {
-    sd.wifiQuality = 0;
-    return sd;
-  }
-  if (dBm >= -50)
-  {
-    sd.wifiQuality = 100;
-    return sd;
-  }
-  sd.wifiQuality = 2 * (dBm + 100);
-  return sd;
-}
+
 // ------------------------------ Setup -------------------------------------
-void setup() {
-  Serial.begin(115200); // Starts the serial communication
-  
-  Serial.print("Garagepack Version ");
-  Serial.println(version);
+void setup()
+{
+  Serial.begin(115200);
+  SPIFFS.begin();
+
+  Logger.begin(&server);
+
+  Logger.println("Garagepack Version " + String(version));
+
+  espRestarting = false;
+
+  EEPROM.begin(EEPROM_SIZE);
 
   pinMode(relay, OUTPUT);
-
-
+  pinMode(reedPin, INPUT_PULLUP);
 
   //read config
-  SPIFFS.begin();
   File f = SPIFFS.open("/settings.json", "r");
-  if (!f) {
-     Serial.println("Loading settings failed! Either the SPIFFS filesystem was not flashed or something went horribly wrong.");
-  }else {
+  if (!f)
+  {
+    Logger.println("Loading settings failed! Either the SPIFFS filesystem was not flashed or something went horribly wrong.");
+  }
+  else
+  {
     String jdata = f.readString();
+    f.close();
     settings = JsonToSettings(jdata);
+    Logger.println("Loading settings done");
+    Logger.println(jdata);
+  }
 
-    Serial.println("Loading settings");   
-  } 
-
-  garage.initGarage(settings, relay);
+  garage.begin(settings, relay, reedPin);
 
   // delay(1000);
   startWifi();
-  Serial.println(WiFi.status());
-  if(WiFi.status() != WL_CONNECTED){
-    if(!settings.runSetup)
+  if (WiFi.status() != WL_CONNECTED)
+  {
+    if (!settings.runSetup)
     {
-      Serial.println("Wifi connection error! restarting in seconds " + String(restartAfterWifiError));
+      Logger.println("Wifi connection error! restarting in seconds " + String(restartAfterWifiError));
       timeToRestart = millis() + (restartAfterWifiError * 1000);
       increaseErrorCounter();
     }
@@ -198,42 +219,67 @@ void setup() {
   {
     resetErrorCounter();
   }
-  
-
   timeClient.begin();
-  if(String(settings.mqttHost)!="" && WiFi.status() == WL_CONNECTED){
-    setupMqtt();
-    setupMqttOk = true;
-  } else {
-    Serial.println("MQTT host not set, skipping");
+  timeClient.forceUpdate();
+  if (String(settings.mqttHost) == "")
+  {
+    Logger.println("MQTT host not set. Skipping MQTT setup");
     setupMqttOk = false;
+  }
+  else if (WiFi.status() != WL_CONNECTED)
+  {
+    Logger.println("Wifi not conncted. Skipping MQTT setup");
+    setupMqttOk = false;
+  }
+  else if ((String(settings.mqttLogin) != "" || String(settings.mqttPassword) != "") && (String(settings.mqttLogin) == "" || String(settings.mqttPassword) == ""))
+  {
+    if (String(settings.mqttLogin) == "")
+    {
+      Logger.println("MQTT Login not set. Skipping MQTT setup");
+    }
+    else if (String(settings.mqttPassword) == "")
+    {
+      Logger.println("MQTT Password not set. Skipping MQTT setup");
+    }
+    setupMqttOk = false;
+  }
+  else
+  {
+    setupMqttOk = true;
+  }
+
+  if (setupMqttOk)
+  {
+    setupMqtt();
   }
 }
 
-
-
-
-
 // ------------------ main loop
 
-
-void loop() {
-  
+void loop()
+{
+  if (espRestarting)
+    return;
+  timeClient.update();
   // check wifi
-  if ( !settings.runSetup and (WiFi.status() == WL_CONNECTION_LOST || WiFi.status() == WL_DISCONNECTED))
+  if (!settings.runSetup and (WiFi.status() == WL_CONNECTION_LOST || WiFi.status() == WL_DISCONNECTED))
   {
-    Serial.println("connection to WiFi lost, restarting");
+    Logger.println("connection to WiFi lost, restarting");
     restartRequired = true;
   }
 
   // check for restart flag or restart timer
-  if (restartRequired || (timeToRestart>0 and timeToRestart< millis() )){  // check the flag here to determine if a restart is required
-    Serial.printf("Restarting ESP\n\r");
+  if (restartRequired || (timeToRestart > 0 and timeToRestart < millis()))
+  { // check the flag here to determine if a restart is required
+    Logger.println("Restarting ESP");
     restartRequired = false;
+    espRestarting = true;
     ESP.restart();
+    return;
   }
 
-  if(setupMqttOk){
+  if (setupMqttOk)
+  {
     mqttLoop();
   }
 
@@ -241,75 +287,71 @@ void loop() {
   currentTime = timeClient.getFormattedTime();
 
   bool stable = false;
-  garage.checkTimers(); // cant use delay because of asyncwebserver
+  garage.loop();
   sensors.lastUpdate = millis();
 
   // if PIR enabled, initialize
-  if(settings.hasPIR){
+  if (settings.hasPIR)
+  {
     sensors.motion = getMotion();
   }
 
   //dont scan for distance all the time (echos?)
-  if(nextScan<=millis()){
+  if (nextScan <= millis())
+  {
     nextScan = millis() + scanTime;
     sensors.distance = getDistance();
     stable = garage.feed(sensors);
-    if(debug){
-      Serial.println(sensors.distance);
+    if (debug)
+    {
+      Logger.println(sensors.distance);
     }
   }
 
   // -----  start config? check here
-  if(sensors.distance <= maxDistanceToConfig && sensors.distance>0){
-    if(configStartTime==0){
+  if (sensors.distance <= maxDistanceToConfig && sensors.distance > 0)
+  {
+    if (configStartTime == 0)
+    {
       configStartTime = millis();
-      Serial.println("Config mode initializing");
-    } 
-  } else if (configStartTime>0) {
-      Serial.println("Config mode cancled");
-      configStartTime = 0;
+      Logger.println("Config mode initializing");
+    }
   }
-  
+  else if (configStartTime > 0)
+  {
+    Logger.println("Config mode cancled");
+    configStartTime = 0;
+  }
+
   // if scandistance lower <maxDistanceToConfig> for <SecondsToConfig> seconds
   // start config mode
-  if(configStartTime >0 && (millis()-configStartTime)/1000 >= SecondsToConfig){
+  if (configStartTime > 0 && (millis() - configStartTime) / 1000 >= SecondsToConfig)
+  {
     configStartTime = 0;
-    Serial.println("Starting Config Portal");
+    Logger.println("Starting Config Portal");
     settings.runSetup = true; //save in settings, will be reset once settings have been saved via UI aggain
     saveSettings(settings);
     restartRequired = true;
   }
   // -------------------------------
 
+  if (stable)
+  { //only submit values if readings are stable
 
-  if(stable){ //only submit values if readings are stable
-    String strStatus = StatusToJson(garage.getStatus());
-    char charStatus[255];
-    strStatus.toCharArray(charStatus, 255);
-    int currentChecksum = getStatusChecksum(garage.getStatus());
-
-    if(currentChecksum != prevChecksum){
-      mqttPublish(charStatus);
-      Serial.println(strStatus);
-      WifiSendtatus(strStatus);
+    Attributes currentAttributes = garage.getAttributes();
+    int currentAttributesChecksum = getAttributesChecksum(currentAttributes);
+    if (currentAttributesChecksum != prevChecksum)
+    {
+      String strAttributes = AttributesToJson(currentAttributes);
+      mqttPublishAttributes(strAttributes);
+      WifiSendtatus(strAttributes);
     }
-    prevChecksum = currentChecksum;
+    prevChecksum = currentAttributesChecksum;
 
-  }
-
-  if(millis() > wifiQualityCheckTime)
-  {
-    Wifi quality = getQuality();
-    if (quality.wifiQuality != previousQuality) {  
-      if (quality.wifiQuality != -1)
-      {
-        Serial.printf("WiFi Quality:\t%d\%\tRSSI:\t%d dBm\r\n", quality, WiFi.RSSI());
-        String wifiStatus = WifiToJson(quality);
-        WifiSendtatus(wifiStatus);
-
-      }
-      previousQuality = quality.wifiQuality;
+    if (currentAttributes.state != prevState)
+    {
+      mqttPublishState(currentAttributes.state);
     }
-    wifiQualityCheckTime = millis() + wifiQualityCheckTimer;
+    prevState = currentAttributes.state;
   }
 }

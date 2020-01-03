@@ -25,7 +25,13 @@
             <div class="garage-status garage-open" style="display:none;">
                 <div class="text">Open</div>
                 <div class="text update">Closing</div>
-                <div class="subtext">12.12.2019 11:32</div>
+                <div class="subtext"></div>
+            </div>
+
+            <div class="garage-status garage-undefined" style="display:none;">
+                <div class="text">Undefined</div>
+                <div class="text update">Opening</div>
+                <div class="subtext"></div>
             </div>
 
         </div>
@@ -68,6 +74,11 @@
                 <input type="checkbox" id="hasPIR" value="true">
                 <p>check if a PIR is connected</p>
             </div>
+            <div class="setting">
+                <label>Close contact</label>
+                <input type="checkbox" id="hasCloseContact" value="true">
+                <p>check if a close contact is connected</p>
+            </div>
 
             <h3>WiFi</h3>
             <div class="setting">
@@ -80,7 +91,7 @@
                 </div>
             <div class="setting">
                 <label>Hostname</label>
-                <input type="text" required id="wifiHostname" value="" placeholder="ESP123214">
+                <input type="text" required id="wifiHostname" value="GaragePack" placeholder="ESP123214">
                 <p>The DNS name under which your Garagapack will be available</p>
             </div>
                         

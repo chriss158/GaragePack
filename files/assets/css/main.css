@@ -107,6 +107,10 @@ h1 {
     background-image: url(../images/garageclosed.svg);
 }
 
+.garage-undefined{
+    background-image: url(../images/garageundef.svg);
+}
+
 .garage-status .text, .garage-status .subtext, .garage-status img {
     opacity:0.75;
     display:block;

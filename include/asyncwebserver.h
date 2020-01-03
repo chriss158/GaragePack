@@ -3,74 +3,84 @@
 #include <Hash.h>
 #include <ESPAsyncTCP.h>
 #include <ESPAsyncWebServer.h>
+#include <logger.h>
 
 extern Garage garage;
 extern Settings settings;
+extern AsyncWebServer server;
 String lastWsMessage;
 extern int relay;
 extern bool saveSettings(Settings sd);
 extern bool restartRequired;
-extern const char* version;
+extern const char *version;
 bool uploadOK;
 String path = "";
-AsyncWebSocketClient * globalClient = NULL;
+AsyncWebSocketClient *globalClient = NULL;
 File file;
 
-AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
 
-const char* serverIndex = "<form method='POST' action='/update' enctype='multipart/form-data'><input type='file' name='update'><input type='submit' value='Update'></form>";
+const char *serverIndex = "<form method='POST' action='/update' enctype='multipart/form-data'><input type='file' name='update'><input type='submit' value='Update'></form>";
 
 // ---------------------- functions -------------------------------
 
-
-String getContentType(String filename) { // convert the file extension to the MIME type
-  if (filename.endsWith(".htm")) return "text/html";
-  else if (filename.endsWith(".css")) return "text/css";
-  else if (filename.endsWith(".js")) return "application/javascript";
-  else if (filename.endsWith(".svg")) return "image/svg+xml";
-  else if (filename.endsWith(".ico")) return "image/x-icon";
-  return "text/plain";
+String getContentType(String filename)
+{ // convert the file extension to the MIME type
+    if (filename.endsWith(".htm"))
+        return "text/html";
+    else if (filename.endsWith(".css"))
+        return "text/css";
+    else if (filename.endsWith(".js"))
+        return "application/javascript";
+    else if (filename.endsWith(".svg"))
+        return "image/svg+xml";
+    else if (filename.endsWith(".ico"))
+        return "image/x-icon";
+    return "text/plain";
 }
 
 String GetNewUploadHtml()
 {
-    if(path == "") path = "/";
+    if (path == "")
+        path = "/";
     return "<form method='POST' action='/setpath' ><input type='text' id='path' name='path' value='" + path + "'><input type='submit' value='Set Path'></form><br><form method='POST' action='/upload' enctype='multipart/form-data'><input type='file' name='file'><input type='submit' value='Upload'></form>";
 }
 
-void handleNotFound(AsyncWebServerRequest *request) {
+void handleNotFound(AsyncWebServerRequest *request)
+{
     String path = request->url();
-    if (path.endsWith("/")) path += "index.htm";         // If a folder is requested, send the index file
-    String contentType = getContentType(path);            // Get the MIME type
-    if (SPIFFS.exists(path)) {                            // If the file exists
-        File file = SPIFFS.open(path, "r");                 // Open it
+    if (path.endsWith("/"))
+        path += "index.htm";                   // If a folder is requested, send the index file
+    String contentType = getContentType(path); // Get the MIME type
+    if (SPIFFS.exists(path))
+    {                                       // If the file exists
+        File file = SPIFFS.open(path, "r"); // Open it
         AsyncWebServerResponse *response = request->beginResponse(SPIFFS, path, contentType);
         // response->addHeader("Server","ESP Async Web Server");
         request->send(response);
-        Serial.println("200\tGET\t" + path);
-        file.close();                                       // Then close the file again
-    } else {
-        Serial.println("404\tGET\t" + path);
+        Logger.println("200\tGET\t" + path);
+        file.close(); // Then close the file again
+    }
+    else
+    {
+        Logger.println("404\tGET\t" + path);
         request->send(404, "text/plain", "Not found");
     }
 }
 
 void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventType type, void * arg, uint8_t *data, size_t len){
     if(type == WS_EVT_CONNECT){
-        Serial.println("Websocket client connection received");
+        Logger.println("Websocket client connection received");
         globalClient = client;
         client->text(lastWsMessage);
     
     } else if(type == WS_EVT_DISCONNECT){
         globalClient = NULL;
-        Serial.println("Client disconnected");
+        Logger.println("Client disconnected");
     }
 }
 
-
-// ----------------------------------------------------------------
-
+ 
 void WifiSendtatus(String message){
     lastWsMessage = message;
     if(globalClient != NULL && globalClient->status() == WS_CONNECTED){
@@ -80,12 +90,16 @@ void WifiSendtatus(String message){
 }
 
 
-void startWifi() {
+// ----------------------------------------------------------------
+
+void startWifi()
+{
     // SPIFFS.begin();
     //######## config WIFI #########
 
-    if(String(settings.wifiSSID)=="" || settings.runSetup==true){
-        Serial.println("Running SetupMode");
+    if (String(settings.wifiSSID) == "" || settings.runSetup == true)
+    {
+        Logger.println("Running SetupMode");
         WiFi.hostname("GaragePackSetup");
 
         WiFi.persistent(false);
@@ -95,121 +109,134 @@ void startWifi() {
         WiFi.persistent(true);
 
         WiFi.softAP("GaragePackSetup_" + String(random(0xffff), HEX));
-        
-        Serial.println();
-        Serial.print("IP address: ");
-        Serial.println(WiFi.softAPIP());
+
+        Logger.println("IP address: " + WiFi.softAPIP().toString());
         // if (WiFi.wai() != WL_CONNECTED) {
-        //     Serial.printf("WiFi AP Failed!\n");
+        //     Logger.printlnf("WiFi AP Failed!\n");
         //     return;
         // }
-    } else {
+    }
+    else
+    {
         //######## config WIFI #########
-        WiFi.hostname(settings.wifiHostname);
+        String hostname = "GaragePack";
+        if (String(settings.wifiHostname) != "")
+            hostname = settings.wifiHostname;
+        WiFi.hostname(hostname);
         WiFi.mode(WIFI_STA);
 
-        
         WiFi.begin(settings.wifiSSID, settings.wifiPassword);
-        if (WiFi.waitForConnectResult() != WL_CONNECTED) {
-            Serial.printf("WiFi Failed!\n");
+        if (WiFi.waitForConnectResult() != WL_CONNECTED)
+        {
+            Logger.println("WiFi Failed!\n");
             return;
         }
 
-        Serial.print("IP Address: ");
-        Serial.println(WiFi.localIP());
+        Logger.println("IP Address: " + WiFi.localIP().toString());
     }
 
-
-
-
-    Serial.print("Hostname: ");
-    Serial.println(WiFi.hostname());
+    Logger.println("Hostname: " + WiFi.hostname());
 
     //######## WIFI routes #########
 
-
-    server.on("/status", HTTP_GET, [](AsyncWebServerRequest *request){
-        request->send(200, "application/json", StatusToJson(garage.getStatus()));
+    server.on("/attributes", HTTP_GET, [](AsyncWebServerRequest *request) {
+        request->send(200, "application/json", AttributesToJson(garage.getAttributes()));
     });
-
-    server.on("/door", HTTP_GET, [] (AsyncWebServerRequest *request) {
+    server.on("/door", HTTP_GET, [](AsyncWebServerRequest *request) {
         String action;
-        if (request->hasParam("action")) {
+        if (request->hasParam("action"))
+        {
             action = request->getParam("action")->value();
-        } 
+        }
 
-        if(action == "on" || action == "open"){
+        if (action == "on" || action == "open")
+        {
             request->send(200, "application/json", "true");
             garage.open();
         }
-        else if (action == "stop"){
+        else if (action == "stop")
+        {
             request->send(200, "application/json", "true");
             garage.stop();
-        }else if (action == "off" || action == "close"){
+        }
+        else if (action == "off" || action == "close")
+        {
             request->send(200, "application/json", "false");
             garage.close();
-        } else {
+        }
+        else
+        {
             request->send(400, "application/json", "invalid command. use on, off, open,close or stop");
         }
     });
 
-    server.on("/restart", HTTP_GET, [] (AsyncWebServerRequest *request) {
-        Serial.println("restarting");
+    server.on("/restart", HTTP_POST, [](AsyncWebServerRequest *request) {
+        Logger.println("restarting");
         request->send(200, "application/json", "true");
-        ESP.restart();
+        delay(1000);
+        restartRequired = true;
     });
 
-    server.on("/settings", HTTP_GET, [] (AsyncWebServerRequest *request) {
+    server.on("/settings", HTTP_GET, [](AsyncWebServerRequest *request) {
         request->send(200, "application/json", SettingsToJson(settings));
     });
 
+    server.on("/log", HTTP_GET, [](AsyncWebServerRequest *request) {
+        request->send(SPIFFS, "/log.log", "text/plain");
+    });
+
     // Send a POST request to <IP>/post with a form field message set to <message>
-    server.on("/settings", HTTP_POST, [](AsyncWebServerRequest *request){
+    server.on("/settings", HTTP_POST, [](AsyncWebServerRequest *request) {
         String message;
-        if (request->hasParam("body", true)) {
+        if (request->hasParam("body", true))
+        {
             message = request->getParam("body", true)->value();
-        } else {
+        }
+        else
+        {
             request->send(400, "application/json", "no body key sent");
             return;
         }
         Settings sp = JsonToSettings(message);
         sp.runSetup = false; //overwrite privously set runsetup
-        if(saveSettings(sp)){
+        if (saveSettings(sp))
+        {
             request->send(200, "application/json", "true");
-            ESP.restart();
-        } else {
-            request->send(500, "application/json", "wrting settinsg failed");
         }
-        
+        else
+        {
+            request->send(500, "application/json", "writing settings failed");
+        }
     });
 
-    server.on("/upload", HTTP_GET, [](AsyncWebServerRequest *request){
+    server.on("/upload", HTTP_GET, [](AsyncWebServerRequest *request) {
         AsyncWebServerResponse *response = request->beginResponse(200, "text/html", GetNewUploadHtml());
         response->addHeader("Connection", "close");
         response->addHeader("Access-Control-Allow-Origin", "*");
         request->send(response);
     });
 
-    server.on("/setpath", HTTP_POST, [](AsyncWebServerRequest *request){
-
-       path = "/";
-       if(request->hasParam("path", true)) 
-       {
-            AsyncWebParameter* p = request->getParam("path", true);
+    server.on("/setpath", HTTP_POST, [](AsyncWebServerRequest *request) {
+        path = "/";
+        if (request->hasParam("path", true))
+        {
+            AsyncWebParameter *p = request->getParam("path", true);
             path = p->value();
         }
-        if(path == "") path = "/";
+        if (path == "")
+            path = "/";
         request->redirect("/upload");
     });
 
-     server.on("/upload", HTTP_POST, [](AsyncWebServerRequest *request){
+    server.on("/upload", HTTP_POST, [](AsyncWebServerRequest *request) {
         // the request handler is triggered after the upload has finished... 
         // create the response, add header, and send response
        AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", (uploadOK)?"OK":"FAIL");
         response->addHeader("Connection", "close");
         response->addHeader("Access-Control-Allow-Origin", "*");
         request->send(response);
-    },[](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final){
+        
+     }, [](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
         //Upload handler chunks in data
         String filepath = "";
 
@@ -217,12 +244,11 @@ void startWifi() {
         {
             uploadOK = true;
             String filepath = path + filename;
-            Serial.print("Upload filepath: ");
-            Serial.println(filepath);
+            Logger.println("Upload filepath: " + filepath);
             SPIFFS.remove(filepath);
-            file = SPIFFS.open(filepath, "a");
+            file = SPIFFS.open(filepath, "a+");
             if (!file) {
-                Serial.println("Error opening file for writing");
+                Logger.println("Error opening file for writing");
                 uploadOK = false;
             }
         }      
@@ -232,45 +258,40 @@ void startWifi() {
             int bytesWritten = file.write(data, len);
     
             if (bytesWritten > 0) {
-                Serial.println("File was written");
-                Serial.println(bytesWritten);
-
-
+                Logger.println("File was written: " + String(bytesWritten));
             } else {
-                Serial.println("File write failed");
+                Logger.println("File write failed");
                 uploadOK = false;
             }
         }
-        if(final) file.close();
-    });
+        if(final) file.close(); });
 
     // --------------- UPDATE FIRMWARE ----------------------
-    server.on("/version", HTTP_GET, [](AsyncWebServerRequest *request){
+    server.on("/version", HTTP_GET, [](AsyncWebServerRequest *request) {
         AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", version);
         response->addHeader("Connection", "close");
         response->addHeader("Access-Control-Allow-Origin", "*");
         request->send(response);
     });
-    server.on("/update", HTTP_GET, [](AsyncWebServerRequest *request){
+    server.on("/update", HTTP_GET, [](AsyncWebServerRequest *request) {
         AsyncWebServerResponse *response = request->beginResponse(200, "text/html", serverIndex);
         response->addHeader("Connection", "close");
         response->addHeader("Access-Control-Allow-Origin", "*");
         request->send(response);
     });
 
-    server.on("/update", HTTP_POST, [](AsyncWebServerRequest *request){
+    server.on("/update", HTTP_POST, [](AsyncWebServerRequest *request) {
         // the request handler is triggered after the upload has finished... 
         // create the response, add header, and send response
         AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", (Update.hasError())?"FAIL":"OK");
         response->addHeader("Connection", "close");
         response->addHeader("Access-Control-Allow-Origin", "*");
         restartRequired = true;  // Tell the main loop to restart the ESP
-        request->send(response);
-    },[](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final){
+        request->send(response); }, [](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
         //Upload handler chunks in data
         
         if(!index){ // if index == 0 then this is the first frame of data
-        Serial.printf("UploadStart: %s\n", filename.c_str());
+        Logger.println("UploadStart: " + filename);
         Serial.setDebugOutput(true);
         
         // calculate sketch space required for the update
@@ -288,21 +309,18 @@ void startWifi() {
         
         if(final){ // if the final flag is set then this is the last frame of data
         if(Update.end(true)){ //true to set the size to the current progress
-            Serial.printf("Update Success: %u B\nRebooting...\n", index+len);
+            Logger.println("Update Success: " + String(index+len) + " B. Rebooting...");
             } else {
             Update.printError(Serial);
             }
             Serial.setDebugOutput(false);
-        }
-    });
-
-    server.onNotFound(handleNotFound);
+        } });
 
     ws.onEvent(onWsEvent);
     server.addHandler(&ws);
+    server.onNotFound(handleNotFound);
 
     // #######################
 
-    
     server.begin();
 }

@@ -1,134 +1,144 @@
 var uri = ""
 var hostname = window.location.hostname;
-if(hostname==""){
-    hostname="192.168.12.175";
-    uri = "http://"+hostname;
+if (hostname == "") {
+    hostname = "192.168.12.175";
+    uri = "http://" + hostname;
 }
 
 //on ready
-$(function(){
+$(function () {
     // ---------------- sockets -----------------
-    var socket = new WebSocket('ws://'+hostname+'/ws');
+    var socketLog = new WebSocket('ws://' + hostname + '/logws');
+    var socket = new WebSocket('ws://' + hostname + '/ws');
+    getCurrenAttributes();
 
-    getCurrenStatus();
+    socketLog.onmessage = function (evt) {
+        console.log(evt.data);
+    }
 
-    socket.onmessage = function(evt){
-        console.log("I got data: ", evt.data);
+    socket.onmessage = function (evt) {
         try {
             var obj = JSON.parse(evt.data);
-            parseStatus(obj);
+            parseAttributes(obj);
         }
-        catch(e)
-        {
+        catch (e) {
             //console.log("Error parsing json data: " + evt.data );
         }
-
     }
     // ------------ UI --------------------
-    $(".garage-status").click(function(){
-        $(this).addClass("updating");
-        if($(this).hasClass("garage-closed")){
-            $.get(uri+"/door?action=open");
-        }else{
-            $.get(uri+"/door?action=close");
+    $(".garage-status").click(function () {
+        $(".garage-status").addClass("updating");
+        if ($(this).hasClass("garage-closed") || $(this).hasClass("garage-undefined")) {
+            $.get(uri + "/door?action=open");
+        } else {
+            $.get(uri + "/door?action=close");
         }
     });
-    $(".nav-settings, #cancel").click(function(){
+    $(".nav-settings, #cancel").click(function () {
         $(".container").slideToggle();
     });
-    $("#restart").click(function(){
-        $.get(uri+"/restart");
-        // window.location.reload();
-
+    $("#restart").click(function () {
+        restartESP();
     });
-    $(".nav-settings").click(function(){
+    $(".nav-settings").click(function () {
         readSettings();
     });
-    $("#save").click(function(){
+    $("#save").click(function () {
         saveSettings();
     });
 });
 
-function getCurrenStatus()
-{
-        $.ajax({
-            dataType: "json",
-            url: uri+"/status",
-            success: function(data){
-                parseStatus(data);
-            }
-          });
+function restartESP() {
+    $("body").css("cursor", "progress");
+    $.post(uri + "/restart");
+    setTimeout(function () {
+        $("body").css("cursor", "default");
+        window.location.reload();
+    }, 2000);
 }
 
-function parseStatus(obj){
-    if(obj.motion !== undefined && obj.open  !== undefined && obj.car  !== undefined && obj.distance  !== undefined)
-    {
-        $(".garage-status").removeClass("updating");
-        $(".garage-status, .car").hide();
-        $(".garage-status").removeClass("motion");
-        if(obj.motion){
-            $(".garage-status").addClass("motion");
-        }
-        if(obj.open){
-            $(".garage-open").show();
-        } else {
-            $(".garage-closed").show();
-            if(obj.car){
-                $(".car-present").show();
-            } else {
-                $(".car-notpresent").show();
-            }
-        }
-            //set placeholder
-        $("#doorDistanceOpen, #doorDistanceClosed").prop("placeholder", obj.distance);
-    }
-    if(obj.wifiquality  !== undefined)
-    {
-        $(".wifi-quality").html(obj.wifiquality +"%");
-    }
-
-}
-
-function readSettings(){
+function getCurrenAttributes() {
     $.ajax({
         dataType: "json",
-        url: uri+"/settings",
-        success: function(data){
-            // console.log(data);
-            Object.keys(data).forEach(function(key) {
-                if($('#'+key).prop("type")=="checkbox"){
-                    $('#'+key).prop("checked", data[key]);
-                } else {
-                    $('#'+key).val(data[key]);
-                }
-
-            });
+        url: uri + "/attributes",
+        success: function (data) {
+            parseAttributes(data);
         }
-      });
+    });
 }
 
-function saveSettings(){
+function parseAttributes(obj) {
+    if (obj.motion !== undefined && obj.open !== undefined && obj.car !== undefined && obj.distance !== undefined) {
+       
+        $(".garage-status, .car").hide();
+        $(".garage-status").removeClass("motion");
+        if (obj.motion) {
+            $(".garage-status").addClass("motion");
+        }
+        if (obj.state == "open" || obj.state == "closing") {
+            $(".garage-open").show();
+            if(obj.state == "open") $(".garage-status").removeClass("updating");
+        } else if (obj.state == "closed"  || obj.state == "opening") {
+            $(".garage-closed").show();
+            if(obj.state == "closed") $(".garage-status").removeClass("updating");
+        } else if (obj.state == "undefined") {
+            $(".garage-undefined").show();
+            $(".garage-status").removeClass("updating");
+        }
+
+        if (obj.car) {
+            $(".car-present").show();
+        } else {
+            $(".car-notpresent").show();
+        }
+
+        //set placeholder
+        $("#doorDistanceOpen, #doorDistanceClosed").prop("placeholder", obj.distance);
+    }
+    if (obj.wifiQuality !== undefined) {
+        $(".wifi-quality").html(obj.wifiQuality + "%");
+    }
+
+}
+
+function readSettings() {
+    var jqxhr = $.get(uri + "/settings")
+        .done(function (data) {
+            // console.log(data);
+            Object.keys(data).forEach(function (key) {
+                if ($('#' + key).prop("type") == "checkbox") {
+                    $('#' + key).prop("checked", data[key]);
+                } else {
+                    $('#' + key).val(data[key]);
+                }
+            });
+        })
+        .fail(function () {
+            alert("Error reading settings");
+        })
+        ;
+}
+
+function saveSettings() {
     jdata = {};
-    $(".setting input").each(function(){
-        if(!this.reportValidity()) return;
+    $(".setting input").each(function () {
+        if (!this.reportValidity()) return;
         var val = $(this).val();
-        if($(this).prop("type")=="number"){
+        if ($(this).prop("type") == "number") {
             val = parseInt(val);
         }
-        if($(this).prop("type")=="checkbox"){
+        if ($(this).prop("type") == "checkbox") {
             val = $(this).prop("checked");
         }
-        jdata[$(this).prop("id")]=val;
+        jdata[$(this).prop("id")] = val;
     });
-    $.ajax({
-        url: uri+"/settings",
-        method: "post",
-        // data: {settings: JSON.stringify(jdata)},
-        data: {body: JSON.stringify(jdata)},
-        // dataType: 'json',
-        // contentType: 'application/json',
-        success: function(data){
-            window.location.reload();
-        }
-      });
+
+    var jqxhr = $.post(uri + "/settings", { body: JSON.stringify(jdata) })
+        .done(function () {
+            restartESP();
+        })
+        .fail(function () {
+            alert("Error saving settings");
+        })
+        ;
 }

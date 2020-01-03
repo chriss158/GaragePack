@@ -1,16 +1,15 @@
 #include <ArduinoJson.h> 
+#include <logger.h>
 
-struct Status {
+
+struct Attributes {
     bool open;
     String state;
     bool car;
     bool motion;
     int distance;
-    unsigned long lastUpdate;
-};
-
-struct Wifi {
     int wifiQuality;
+    unsigned long lastUpdate;
 };
 
 struct Sensordata{
@@ -24,8 +23,8 @@ struct Settings {
     int doorDistanceClosed = 180;
     int doorTimeToggle = 20;
     unsigned long int relayMode = 500;
-    bool hasPIR = true;
-
+    bool hasPIR = false;
+    bool hasCloseContact = false;
     const char* wifiSSID = "";
     const char* wifiPassword = "";
     const char* wifiHostname = "GaragePack";
@@ -41,30 +40,18 @@ struct Settings {
     unsigned long int doorTimeClose = 10000;
 };
 
-struct MqttCommand {
-    const char* command;
-    const char* value;
-};
-
 // --------------------------------------------------------------------
 
-String StatusToJson(Status sd) {
+String AttributesToJson(Attributes a) {
     String output;
     StaticJsonDocument<200> doc;
-    doc["open"] = sd.open;
-    doc["state"] = sd.state;
-    doc["car"] = sd.car;
-    doc["motion"] = sd.motion;
-    doc["distance"] = sd.distance;
-    doc["lastupdate"] = sd.lastUpdate;
-    serializeJson(doc, output);
-    return output;
-}
-
-String WifiToJson(Wifi sd) {
-    String output;
-    StaticJsonDocument<200> doc;
-    doc["wifiquality"] = sd.wifiQuality;
+    doc["open"] = a.open;
+    doc["state"] = a.state;
+    doc["car"] = a.car;
+    doc["motion"] = a.motion;
+    doc["distance"] = a.distance;
+    doc["wifiQuality"] = a.wifiQuality;
+    doc["lastupdate"] = a.lastUpdate;
     serializeJson(doc, output);
     return output;
 }
@@ -86,6 +73,7 @@ String SettingsToJson(Settings sd) {
     doc["doorDistanceClosed"] = sd.doorDistanceClosed;
     doc["doorTimeToggle"] = sd.doorTimeToggle;
     doc["hasPIR"] = sd.hasPIR;
+    doc["hasCloseContact"] = sd.hasCloseContact;
     doc["relayMode"] = sd.relayMode;
     doc["wifiSSID"] = sd.wifiSSID;
     doc["wifiPassword"] = sd.wifiPassword;
@@ -98,7 +86,7 @@ String SettingsToJson(Settings sd) {
     doc["errorCount"] = sd.errorCount;
     doc["doorTimeOpen"] = sd.doorTimeOpen;
     doc["doorTimeClose"] = sd.doorTimeClose;
-     
+
     serializeJson(doc, output);
     return output;
 }
@@ -110,14 +98,14 @@ Settings JsonToSettings(String json){
 
     // Test if parsing succeeds.
     if (error) {
-        Serial.print(F("deserializeJson settings"));
-        Serial.println(error.c_str());
+        Logger.println("deserializeJson settings. RC:" + String(error.c_str()));
     } else {
         sd.doorDistanceOpen = doc["doorDistanceOpen"];
         sd.doorDistanceClosed = doc["doorDistanceClosed"];
         sd.doorTimeToggle = doc["doorTimeToggle"];
         sd.relayMode = doc["relayMode"];
         sd.hasPIR = doc["hasPIR"];
+        sd.hasCloseContact = doc["hasCloseContact"];
         sd.wifiSSID = doc["wifiSSID"];
         sd.wifiPassword = doc["wifiPassword"];
         sd.wifiHostname = doc["wifiHostname"];
@@ -134,23 +122,6 @@ Settings JsonToSettings(String json){
             sd.errorCount = doc["errorCount"];
         }
         else sd.errorCount = 0;
-    }
-    return sd;
-}
-
-
-MqttCommand JsonToMqttCommand(String json){
-    MqttCommand sd;
-    StaticJsonDocument<200> doc;
-    DeserializationError error = deserializeJson(doc, json);
-
-    // Test if parsing succeeds.
-    if (error) {
-        Serial.print(F("deserializeJson MqttCommand"));
-        Serial.println(error.c_str());
-    } else {
-        sd.command = doc["command"];
-        sd.value = doc["value"];
     }
     return sd;
 }

@@ -1,1 +1,1 @@
-{"doorDistanceOpen":20,"doorDistanceClosed":180,"doorTimeClose":20,"doorTimeOpen":20,"relayMode":500,"hasPIR":false,"wifiSSID":"","wifiPassword":"","wifiHostname":"GaragePack","mqttHost":"","mqttLogin":"","mqttPassword":"","runSetup":true, "restartAfterWifiError": 120, "errorCount": 0}
+{"doorDistanceOpen":20,"doorDistanceClosed":180,"doorTimeClose":20,"doorTimeOpen":20,"relayMode":500,"hasPIR":false,"hasCloseContact":false,"wifiSSID":"","wifiPassword":"","wifiHostname":"GaragePack","mqttHost":"","mqttLogin":"","mqttPassword":"","runSetup":true, "restartAfterWifiError": 120}
