@@ -25,12 +25,12 @@ Ultrasonic ultrasonic1(D1, D2, 20000UL);
 
 // unsigned long int relayMode = 500;  //0=toggle, >0=delay ms for push button emulation
 
-const char *version = "0.16";
+const char *version = "0.16.1";
 
 bool debug = false;
 Sensordata sensors;
 int prevChecksum = -33;
-String prevState = "";
+bool prevOpen;
 unsigned long nextScan = 0;
 unsigned long scanTime = 100;
 
@@ -348,10 +348,10 @@ void loop()
     }
     prevChecksum = currentAttributesChecksum;
 
-    if (currentAttributes.state != prevState)
+    if (currentAttributes.open != prevOpen)
     {
-      mqttPublishState(currentAttributes.state);
+      mqttPublishOpen(currentAttributes.open);
     }
-    prevState = currentAttributes.state;
+    prevOpen = currentAttributes.open;
   }
 }

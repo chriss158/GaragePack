@@ -206,9 +206,12 @@ String Garage::getState()
     if (closing)
         return "closing";
 
-    if (!garageDoorCompletelyOpen() && !garageDoorCompletelyClosed())
+    if (settings.hasCloseContact)
     {
-        return "undefined";
+        if (!garageDoorCompletelyOpen() && !garageDoorCompletelyClosed())
+        {
+            return "undefined";
+        }
     }
 
     return isOpen() ? "open" : "closed";
