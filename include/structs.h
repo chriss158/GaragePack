@@ -19,6 +19,7 @@ struct Sensordata{
 } ;
 
 struct Settings {
+    const char* title = "GaragePack";
     int doorDistanceOpen = 20;
     int doorDistanceClosed = 180;
     int doorTimeToggle = 20;
@@ -68,7 +69,7 @@ String sensordataToJson(Sensordata sd) {
 String SettingsToJson(Settings sd) {
     String output;
     StaticJsonDocument<2000> doc;
-
+    doc["title"] = sd.title;
     doc["doorDistanceOpen"] = sd.doorDistanceOpen;
     doc["doorDistanceClosed"] = sd.doorDistanceClosed;
     doc["doorTimeToggle"] = sd.doorTimeToggle;
@@ -116,7 +117,7 @@ Settings JsonToSettings(String json){
         sd.restartAfterWifiError = doc["restartAfterWifiError"];
         sd.doorTimeOpen = doc["doorTimeOpen"];
         sd.doorTimeClose = doc["doorTimeClose"];
-
+        sd.title = doc["title"];
         if(doc.containsKey("errorCount"))
         {
             sd.errorCount = doc["errorCount"];

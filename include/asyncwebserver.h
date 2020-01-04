@@ -46,6 +46,21 @@ String GetNewUploadHtml()
     return "<form method='POST' action='/setpath' ><input type='text' id='path' name='path' value='" + path + "'><input type='submit' value='Set Path'></form><br><form method='POST' action='/upload' enctype='multipart/form-data'><input type='file' name='file'><input type='submit' value='Upload'></form>";
 }
 
+String processor(const String &var)
+{
+    if (var == "TITLE")
+    {
+        String title = String(settings.title);
+        return (title == "" ? "GaragePack" : title);
+    }
+    else if(var == "VERSION")
+    {
+        return  "v" + String(version);
+    }
+
+    return String();
+}
+
 void handleNotFound(AsyncWebServerRequest *request)
 {
     String path = request->url();
@@ -55,7 +70,16 @@ void handleNotFound(AsyncWebServerRequest *request)
     if (SPIFFS.exists(path))
     {                                       // If the file exists
         File file = SPIFFS.open(path, "r"); // Open it
-        AsyncWebServerResponse *response = request->beginResponse(SPIFFS, path, contentType);
+        AsyncWebServerResponse *response;
+        if (contentType == "text/html")
+        {
+            response = request->beginResponse(SPIFFS, path, contentType, false, processor);
+        }
+        else
+        {
+            response = request->beginResponse(SPIFFS, path, contentType);
+        }
+
         // response->addHeader("Server","ESP Async Web Server");
         request->send(response);
         Logger.println("200\tGET\t" + path);
@@ -68,27 +92,30 @@ void handleNotFound(AsyncWebServerRequest *request)
     }
 }
 
-void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventType type, void * arg, uint8_t *data, size_t len){
-    if(type == WS_EVT_CONNECT){
+void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len)
+{
+    if (type == WS_EVT_CONNECT)
+    {
         Logger.println("Websocket client connection received");
         globalClient = client;
         client->text(lastWsMessage);
-    
-    } else if(type == WS_EVT_DISCONNECT){
+    }
+    else if (type == WS_EVT_DISCONNECT)
+    {
         globalClient = NULL;
         Logger.println("Client disconnected");
     }
 }
 
- 
-void WifiSendtatus(String message){
+void WifiSendtatus(String message)
+{
     lastWsMessage = message;
-    if(globalClient != NULL && globalClient->status() == WS_CONNECTED){
+    if (globalClient != NULL && globalClient->status() == WS_CONNECTED)
+    {
         globalClient->text(lastWsMessage);
         // globalClient->text();
     }
 }
-
 
 // ----------------------------------------------------------------
 
@@ -229,14 +256,13 @@ void startWifi()
     });
 
     server.on("/upload", HTTP_POST, [](AsyncWebServerRequest *request) {
-        // the request handler is triggered after the upload has finished... 
+        // the request handler is triggered after the upload has finished...
         // create the response, add header, and send response
-       AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", (uploadOK)?"OK":"FAIL");
+        AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", (uploadOK) ? "OK" : "FAIL");
         response->addHeader("Connection", "close");
         response->addHeader("Access-Control-Allow-Origin", "*");
-        request->send(response);
-        
-     }, [](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
+        request->send(response); },
+              [](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
         //Upload handler chunks in data
         String filepath = "";
 
@@ -267,12 +293,6 @@ void startWifi()
         if(final) file.close(); });
 
     // --------------- UPDATE FIRMWARE ----------------------
-    server.on("/version", HTTP_GET, [](AsyncWebServerRequest *request) {
-        AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", version);
-        response->addHeader("Connection", "close");
-        response->addHeader("Access-Control-Allow-Origin", "*");
-        request->send(response);
-    });
     server.on("/update", HTTP_GET, [](AsyncWebServerRequest *request) {
         AsyncWebServerResponse *response = request->beginResponse(200, "text/html", serverIndex);
         response->addHeader("Connection", "close");

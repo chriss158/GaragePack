@@ -1,6 +1,6 @@
 <html>
     <head>
-        <title>Achmeds Garage</title>
+        <title>%TITLE%</title>
         <link href="assets/css/main.css" rel="stylesheet" crossorigin="anonymous">
         <script src="assets/js/jquery-3.3.1.min.js" crossorigin="anonymous"></script>
         <script src="assets/js/main.js" crossorigin="anonymous"></script>
@@ -14,7 +14,7 @@
             <div class="wifi-quality"></div>
         </div>
         <div class="container" id="default">
-            <h1>GaragePack</h1>
+            <h1>%TITLE%</h1>
             <div class="garage-status garage-closed" style="display:none;">
                 <div class="text">Closed</div>
                 <div class="text update">Opening</div>
@@ -39,6 +39,11 @@
             <h1>GaragePack - Settings</h1>
 
             <h3>General settings</h3>
+            <div class="setting">
+                <label>Title</label>
+                <input type="text" id="title" value="GaragePack" placeholder="">
+                <p>Website Title</p>
+            </div>
             <div class="setting">
                 <label>Distance Opened</label>
                 <div class="suffix">cm</div>
@@ -79,6 +84,7 @@
                 <input type="checkbox" id="hasCloseContact" value="true">
                 <p>check if a close contact is connected</p>
             </div>
+   
 
             <h3>WiFi</h3>
             <div class="setting">
@@ -116,6 +122,7 @@
             <button class="" id="restart">Restart</button>
 
         </div>
+        <div class="version">%VERSION%</div>
         
     </body>
 </html>

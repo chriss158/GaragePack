@@ -218,6 +218,13 @@ button.noborder {
     color:#fff;
 }
 
+.version
+{
+    position:fixed;
+    right: 0%;
+    bottom: 0%;
+}
+
 /* ----------------------------- */
 
 @media only screen and (max-device-width: 600px) {
