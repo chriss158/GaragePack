@@ -25,18 +25,17 @@ Ultrasonic ultrasonic1(D1, D2, 20000UL);
 
 // unsigned long int relayMode = 500;  //0=toggle, >0=delay ms for push button emulation
 
-const char *version = "0.16.2";
+const char *version = "0.17";
 
 bool debug = false;
 Sensordata sensors;
-int prevChecksum = -33;
-bool prevOpen;
+int prevChecksum = -1;
+bool prevOpen = false;
+bool bootStateWasSend = false;
 unsigned long nextScan = 0;
 unsigned long scanTime = 100;
 
 int previousQuality = -1;
-unsigned long wifiQualityCheckTime = 0;
-unsigned long wifiQualityCheckTimer = 10000;
 
 bool restartRequired = false;
 bool espRestarting = false;
@@ -99,8 +98,6 @@ bool getMotion()
   }
   return true;
 }
-
-
 
 int getAttributesChecksum(Attributes a)
 {
@@ -348,9 +345,10 @@ void loop()
     }
     prevChecksum = currentAttributesChecksum;
 
-    if (currentAttributes.open != prevOpen)
+    if (currentAttributes.open != prevOpen || !bootStateWasSend)
     {
       mqttPublishOpen(currentAttributes.open);
+      bootStateWasSend = true;
     }
     prevOpen = currentAttributes.open;
   }

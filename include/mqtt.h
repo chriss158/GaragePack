@@ -106,7 +106,7 @@ void mqttPublish(char topic[50], String msg)
 
     char charMsg[255];
     msg.toCharArray(charMsg, 255);
-    client.publish(topic, charMsg);
+    client.publish(topic, charMsg, true);
   }
 }
 
