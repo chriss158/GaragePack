@@ -40,8 +40,14 @@ $(function () {
     $("#restart").click(function () {
         restartESP();
     });
-    $(".nav-settings").click(function () {
+    $(".settings").click(function () {
         readSettings();
+    });
+    $(".firmware").click(function () {
+        window.location.href = 'firmware'
+    });
+    $(".files").click(function () {
+        window.location.href = 'files'
     });
     $("#save").click(function () {
         saveSettings();

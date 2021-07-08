@@ -20,7 +20,7 @@ File file;
 
 AsyncWebSocket ws("/ws");
 
-const char *serverIndex = "<form method='POST' action='/update' enctype='multipart/form-data'><input type='file' name='update'><input type='submit' value='Update'></form>";
+const char *serverIndex = "<form method='POST' action='/firmware' enctype='multipart/form-data'><input type='file' name='update'><input type='submit' value='Update'></form>";
 
 // ---------------------- functions -------------------------------
 
@@ -43,7 +43,7 @@ String GetNewUploadHtml()
 {
     if (path == "")
         path = "/";
-    return "<form method='POST' action='/setpath' ><input type='text' id='path' name='path' value='" + path + "'><input type='submit' value='Set Path'></form><br><form method='POST' action='/upload' enctype='multipart/form-data'><input type='file' name='file'><input type='submit' value='Upload'></form>";
+    return "<form method='POST' id='pathForm' action='/setpath' ><input type='text' id='path' name='path' value='" + path + "'><input type='submit' value='Set Path'><button type='button' id='setJavascriptPath' onclick='document.getElementById(\"path\").value=\"/assets/js/\";document.getElementById(\"pathForm\").submit();'>Set Javascript Path</button><button type='button' id='setImagesPath' onclick='document.getElementById(\"path\").value=\"/assets/images/\";document.getElementById(\"pathForm\").submit();'>Set Images Path</button><button type='button' id='setCSSPath' onclick='document.getElementById(\"path\").value=\"/assets/css/\";document.getElementById(\"pathForm\").submit();'>Set CSS Path</button><button type='button' id='setHTMLPath' onclick='document.getElementById(\"path\").value=\"/\";document.getElementById(\"pathForm\").submit();'>Set HTML Path</button></form><br><form method='POST' action='/files' enctype='multipart/form-data'><input type='file' name='file'><input type='submit' value='Upload'></form>";
 }
 
 String processor(const String &var)
@@ -236,7 +236,7 @@ void startWifi()
         }
     });
 
-    server.on("/upload", HTTP_GET, [](AsyncWebServerRequest *request) {
+    server.on("/files", HTTP_GET, [](AsyncWebServerRequest *request) {
         AsyncWebServerResponse *response = request->beginResponse(200, "text/html", GetNewUploadHtml());
         response->addHeader("Connection", "close");
         response->addHeader("Access-Control-Allow-Origin", "*");
@@ -252,10 +252,10 @@ void startWifi()
         }
         if (path == "")
             path = "/";
-        request->redirect("/upload");
+        request->redirect("/files");
     });
 
-    server.on("/upload", HTTP_POST, [](AsyncWebServerRequest *request) {
+    server.on("/files", HTTP_POST, [](AsyncWebServerRequest *request) {
         // the request handler is triggered after the upload has finished...
         // create the response, add header, and send response
         AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", (uploadOK) ? "OK" : "FAIL");
@@ -293,14 +293,14 @@ void startWifi()
         if(final) file.close(); });
 
     // --------------- UPDATE FIRMWARE ----------------------
-    server.on("/update", HTTP_GET, [](AsyncWebServerRequest *request) {
+    server.on("/firmware", HTTP_GET, [](AsyncWebServerRequest *request) {
         AsyncWebServerResponse *response = request->beginResponse(200, "text/html", serverIndex);
         response->addHeader("Connection", "close");
         response->addHeader("Access-Control-Allow-Origin", "*");
         request->send(response);
     });
 
-    server.on("/update", HTTP_POST, [](AsyncWebServerRequest *request) {
+    server.on("/firmware", HTTP_POST, [](AsyncWebServerRequest *request) {
         // the request handler is triggered after the upload has finished... 
         // create the response, add header, and send response
         AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", (Update.hasError())?"FAIL":"OK");

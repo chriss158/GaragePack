@@ -25,7 +25,7 @@ Ultrasonic ultrasonic1(D1, D2, 20000UL);
 
 // unsigned long int relayMode = 500;  //0=toggle, >0=delay ms for push button emulation
 
-const char *version = "0.18";
+const char *version = "0.19";
 
 bool debug = false;
 Sensordata sensors;

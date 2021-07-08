@@ -54,10 +54,35 @@ h1 {
     position: absolute;
     top:10px;
     left:10px;
+}
+.settings {
     cursor: pointer;
+    display: inline-block;
     color:#fff;
     text-decoration: none;
     background-image: url(../images/cog.svg);
+    width:25px;
+    height: 25px;
+    background-size: 100%;
+}
+
+.files {
+    cursor: pointer;
+    display: inline-block;
+    color:#fff;
+    text-decoration: none;
+    background-image: url(../images/files.svg);
+    width:25px;
+    height: 25px;
+    background-size: 100%;
+}
+
+.firmware {
+    cursor: pointer;
+    display: inline-block;
+    color:#fff;
+    text-decoration: none;
+    background-image: url(../images/firmware.svg);
     width:25px;
     height: 25px;
     background-size: 100%;
