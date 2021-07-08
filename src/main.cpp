@@ -25,12 +25,12 @@ Ultrasonic ultrasonic1(D1, D2, 20000UL);
 
 // unsigned long int relayMode = 500;  //0=toggle, >0=delay ms for push button emulation
 
-const char *version = "0.17";
+const char *version = "0.18";
 
 bool debug = false;
 Sensordata sensors;
 int prevChecksum = -1;
-bool prevOpen = false;
+String prevState = "";
 bool bootStateWasSend = false;
 unsigned long nextScan = 0;
 unsigned long scanTime = 100;
@@ -115,19 +115,19 @@ int getAttributesChecksum(Attributes a)
     ret += 100;
   }
 
-  if (a.state == "open")
+  if (a.garageState == "open")
   {
     ret += 1000;
   }
-  else if (a.state == "closed")
+  else if (a.garageState == "closed")
   {
     ret += 1010;
   }
-  else if (a.state == "opening")
+  else if (a.garageState == "opening")
   {
     ret += 1020;
   }
-  else if (a.state == "closing")
+  else if (a.garageState == "closing")
   {
     ret += 1030;
   }
@@ -345,11 +345,11 @@ void loop()
     }
     prevChecksum = currentAttributesChecksum;
 
-    if (currentAttributes.open != prevOpen || !bootStateWasSend)
+    if (currentAttributes.garageState != prevState || !bootStateWasSend)
     {
-      mqttPublishOpen(currentAttributes.open);
+      mqttPublishState(currentAttributes.garageState);
       bootStateWasSend = true;
     }
-    prevOpen = currentAttributes.open;
+    prevState = currentAttributes.garageState;
   }
 }

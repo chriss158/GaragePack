@@ -221,7 +221,7 @@ Attributes Garage::getAttributes()
 {
     Attributes ret;
     ret.open = isOpen();
-    ret.state = getState();
+    ret.garageState = getState();
     ret.car = hasCar();
     ret.wifiQuality = getWifiQuality();
     ret.distance = stableDistance;

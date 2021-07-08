@@ -110,14 +110,9 @@ void mqttPublish(char topic[50], String msg)
   }
 }
 
-void mqttPublishState(String msg)
+void mqttPublishState(String state)
 {
-  mqttPublish(mqttTopicState, msg);
-}
-
-void mqttPublishOpen(bool open)
-{
-  mqttPublish(mqttTopicState, open ? "open" : "closed");
+  mqttPublish(mqttTopicState, state);
 }
 
 void mqttPublishAttributes(String msg)

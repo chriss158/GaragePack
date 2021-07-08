@@ -4,7 +4,7 @@
 
 struct Attributes {
     bool open;
-    String state;
+    String garageState;
     bool car;
     bool motion;
     int distance;
@@ -47,7 +47,7 @@ String AttributesToJson(Attributes a) {
     String output;
     StaticJsonDocument<200> doc;
     doc["open"] = a.open;
-    doc["state"] = a.state;
+    doc["garageState"] = a.garageState;
     doc["car"] = a.car;
     doc["motion"] = a.motion;
     doc["distance"] = a.distance;

@@ -75,13 +75,13 @@ function parseAttributes(obj) {
         if (obj.motion) {
             $(".garage-status").addClass("motion");
         }
-        if (obj.state == "open" || obj.state == "closing") {
+        if (obj.garageState == "open" || obj.garageState == "closing") {
             $(".garage-open").show();
-            if(obj.state == "open") $(".garage-status").removeClass("updating");
-        } else if (obj.state == "closed"  || obj.state == "opening") {
+            if(obj.garageState == "open") $(".garage-status").removeClass("updating");
+        } else if (obj.garageState == "closed"  || obj.garageState == "opening") {
             $(".garage-closed").show();
-            if(obj.state == "closed") $(".garage-status").removeClass("updating");
-        } else if (obj.state == "undefined") {
+            if(obj.garageState == "closed") $(".garage-status").removeClass("updating");
+        } else if (obj.garageState == "undefined") {
             $(".garage-undefined").show();
             $(".garage-status").removeClass("updating");
         }
